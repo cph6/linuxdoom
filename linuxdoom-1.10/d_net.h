@@ -61,6 +61,8 @@ typedef enum
 //
 typedef struct
 {
+    // sequence numbers for packets, as in original doom IPX
+    unsigned		timer;
     // High bit is retransmit request.
     unsigned		checksum;
     // Only valid if NCMD_RETRANSMIT.

@@ -27,9 +27,9 @@ rcsid[] = "$Id: m_bbox.c,v 1.1 1997/02/03 22:45:10 b1 Exp $";
 #include <string.h>
 #include <stdio.h>
 
+#include <time.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <netipx/ipx.h>
 #include <errno.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -48,22 +48,15 @@ rcsid[] = "$Id: m_bbox.c,v 1.1 1997/02/03 22:45:10 b1 Exp $";
 #include "i_net.h"
 
 
+// setupdata_t is used as doomdata_t during setup
+typedef struct
+{
+     short     gameid;                       // so multiple games can setup at once
+     short     drone;
+     short     nodesfound;
+     short     nodeswanted;
+} setupdata_t;
 
-
-
-// For some odd reason...
-#define ntohl(x) \
-        ((unsigned long int)((((unsigned long int)(x) & 0x000000ffU) << 24) | \
-                             (((unsigned long int)(x) & 0x0000ff00U) <<  8) | \
-                             (((unsigned long int)(x) & 0x00ff0000U) >>  8) | \
-                             (((unsigned long int)(x) & 0xff000000U) >> 24)))
-
-#define ntohs(x) \
-        ((unsigned short int)((((unsigned short int)(x) & 0x00ff) << 8) | \
-                              (((unsigned short int)(x) & 0xff00) >> 8))) \
-	  
-#define htonl(x) ntohl(x)
-#define htons(x) ntohs(x)
 
 void	NetSend (void);
 boolean NetListen (void);
@@ -73,170 +66,183 @@ boolean NetListen (void);
 // NETWORKING
 //
 
-int	DOOMPORT =	(IPPORT_USERRESERVED +0x1d );
+int	DOOMPORT =	0x869b;
 
 int			sendsocket;
 int			insocket;
 
-struct	sockaddr_in	sendaddress[MAXNETNODES];
+struct	sockaddr	sendaddress[MAXNETNODES+1];
+struct  sockaddr	fromaddress;
 
-void	(*netget) (void);
-void	(*netsend) (void);
+int	(*netget) (void);
+void	(*netsend) (int);
 
-
-//
-// UDPsocket
-//
-int UDPsocket (void)
-{
-    int	s;
-	
-    // allocate a socket
-    s = socket (PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (s<0)
-	I_Error ("can't create socket: %s",strerror(errno));
-		
+int ipx_socket(void) {
+    int s = socket(PF_IPX,SOCK_DGRAM,0);
+    struct sockaddr_ipx sa;
+    if (s == -1) {
+            I_Error("socket(PF_PIPX): %s\n",strerror(errno));
+    }
+    memset(&sa,0,sizeof(sa));
+    sa.sipx_family = AF_IPX;
+    memset(sa.sipx_node,0xff,sizeof(sa.sipx_node));
+    sa.sipx_port = htons(DOOMPORT);
+    memcpy(&sendaddress[MAXNETNODES],&sa,sizeof(sa)); // Save broadcast address
+    if (bind(s,(struct sockaddr*)&sa,sizeof(sa)) == -1) {
+            I_Error("bind(%d): %s\n",DOOMPORT,strerror(errno));
+    }
     return s;
-}
-
-//
-// BindToLocalPort
-//
-void
-BindToLocalPort
-( int	s,
-  int	port )
-{
-    int			v;
-    struct sockaddr_in	address;
-	
-    memset (&address, 0, sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = port;
-			
-    v = bind (s, (void *)&address, sizeof(address));
-    if (v == -1)
-	I_Error ("BindToPort: bind: %s", strerror(errno));
 }
 
 
 //
 // PacketSend
 //
-void PacketSend (void)
+void PacketSend (int timer)
 {
     int		c;
-    doomdata_t	sw;
-				
-    // byte swap
-    sw.checksum = htonl(netbuffer->checksum);
-    sw.player = netbuffer->player;
-    sw.retransmitfrom = netbuffer->retransmitfrom;
-    sw.starttic = netbuffer->starttic;
-    sw.numtics = netbuffer->numtics;
-    for (c=0 ; c< netbuffer->numtics ; c++)
-    {
-	sw.cmds[c].forwardmove = netbuffer->cmds[c].forwardmove;
-	sw.cmds[c].sidemove = netbuffer->cmds[c].sidemove;
-	sw.cmds[c].angleturn = htons(netbuffer->cmds[c].angleturn);
-	sw.cmds[c].consistancy = htons(netbuffer->cmds[c].consistancy);
-	sw.cmds[c].chatchar = netbuffer->cmds[c].chatchar;
-	sw.cmds[c].buttons = netbuffer->cmds[c].buttons;
-    }
-		
-    //printf ("sending %i\n",gametic);		
-    c = sendto (sendsocket , &sw, doomcom->datalength
+
+    netbuffer->timer = timer;
+    doomcom->datalength = ((doomcom->datalength + 4) +7) & 0xfff8;
+    c = sendto (sendsocket, netbuffer, doomcom->datalength
 		,0,(void *)&sendaddress[doomcom->remotenode]
 		,sizeof(sendaddress[doomcom->remotenode]));
 	
-    //	if (c == -1)
-    //		I_Error ("SendPacket error: %s",strerror(errno));
+    if (c == -1)
+    	I_Error ("SendPacket error: %s",strerror(errno));
 }
 
+void memdmp(char* p, size_t s) {
+	while (s--) { char c = *p++; fprintf(stderr,"%x%x",(c>>4)&0xf,c&0xf); }
+	fprintf(stderr,"\n");
+}
 
 //
 // PacketGet
 //
-void PacketGet (void)
+int PacketGet (void)
 {
     int			i;
     int			c;
-    struct sockaddr_in	fromaddress;
-    int			fromlen;
-    doomdata_t		sw;
+    int			fromlen = sizeof(fromaddress);
 				
-    fromlen = sizeof(fromaddress);
-    c = recvfrom (insocket, &sw, sizeof(sw), 0
-		  , (struct sockaddr *)&fromaddress, &fromlen );
+    c = recvfrom (insocket, netbuffer, sizeof(*netbuffer), 0, &fromaddress, &fromlen );
+    ((struct sockaddr_ipx*)&fromaddress)->sipx_zero = 0;
+    if (fromlen < sizeof(fromaddress)) memset(&fromaddress,0,sizeof(fromaddress)-fromlen);
     if (c == -1 )
     {
 	if (errno != EWOULDBLOCK)
 	    I_Error ("GetPacket: %s",strerror(errno));
 	doomcom->remotenode = -1;		// no packet
-	return;
-    }
-
-    {
-	static int first=1;
-	if (first)
-	    printf("len=%d:p=[0x%x 0x%x] \n", c, *(int*)&sw, *((int*)&sw+1));
-	first = 0;
+	return 0;
     }
 
     // find remote node number
-    for (i=0 ; i<doomcom->numnodes ; i++)
-	if ( fromaddress.sin_addr.s_addr == sendaddress[i].sin_addr.s_addr )
+    for (i=0 ; i<doomcom->numnodes ; i++) {
+//	memdmp(&fromaddress,sizeof fromaddress);
+//	memdmp(&sendaddress[i],sizeof fromaddress);
+	if (!memcmp(&fromaddress,&sendaddress[i],sizeof fromaddress))
 	    break;
+    }
 
-    if (i == doomcom->numnodes)
-    {
-	// packet is not from one of the players (new game broadcast)
-	doomcom->remotenode = -1;		// no packet
-	return;
+    if (i == doomcom->numnodes) {
+	i = -1;			// could be a setup packet
     }
 	
+    {
+	static int first=1;
+	if (first)
+	    printf("len=%d,node=%d:seq=%d,sum=0x%08x,nextword=0%08x] \n", c, i, netbuffer->timer, netbuffer->checksum, *(((int*)netbuffer)+2));
+//	first = 0;
+    }
+
     doomcom->remotenode = i;			// good packet from a game player
     doomcom->datalength = c;
 	
-    // byte swap
-    netbuffer->checksum = ntohl(sw.checksum);
-    netbuffer->player = sw.player;
-    netbuffer->retransmitfrom = sw.retransmitfrom;
-    netbuffer->starttic = sw.starttic;
-    netbuffer->numtics = sw.numtics;
-
-    for (c=0 ; c< netbuffer->numtics ; c++)
-    {
-	netbuffer->cmds[c].forwardmove = sw.cmds[c].forwardmove;
-	netbuffer->cmds[c].sidemove = sw.cmds[c].sidemove;
-	netbuffer->cmds[c].angleturn = ntohs(sw.cmds[c].angleturn);
-	netbuffer->cmds[c].consistancy = ntohs(sw.cmds[c].consistancy);
-	netbuffer->cmds[c].chatchar = sw.cmds[c].chatchar;
-	netbuffer->cmds[c].buttons = sw.cmds[c].buttons;
-    }
+    return 1;
 }
 
 
-
-int GetLocalAddress (void)
+//
+// I_ListenPlayers
+//
+static void I_ListenPlayers (void)
 {
-    char		hostname[1024];
-    struct hostent*	hostentry;	// host information entry
-    int			v;
+    setupdata_t    nodesetup[MAXNETNODES];
+    time_t lastsend = 0;
 
-    // get local address
-    v = gethostname (hostname, sizeof(hostname));
-    if (v == -1)
-	I_Error ("GetLocalAddress : gethostname: errno %d",errno);
-	
-    hostentry = gethostbyname (hostname);
-    if (!hostentry)
-	I_Error ("GetLocalAddress : gethostbyname: couldn't get local host");
-		
-    return *(int *)hostentry->h_addr_list[0];
+    nodesetup[0].drone = 0;
+    nodesetup[0].gameid = 0;
+    nodesetup[0].nodesfound = 0;
+    nodesetup[0].nodeswanted = doomcom->numnodes;
+    netbuffer = &doomcom->data;
+
+    for (;;)  {
+	{
+	    time_t newtime;
+	    newtime = time(NULL);
+	    if (newtime != lastsend) {
+		lastsend = newtime;
+		/* Broadcast our status */
+		doomcom->command = CMD_SEND;
+		doomcom->remotenode = MAXNETNODES;
+		memcpy (&netbuffer->checksum, &nodesetup[0], sizeof(nodesetup[0]));
+		doomcom->datalength = sizeof(nodesetup[0]);
+		PacketSend(-1);
+	    }
+	}
+	{
+	  int i,readynodes;
+	  for (i=0, readynodes=0, doomcom->numplayers = 0; i<nodesetup[0].nodesfound ; i++)
+	    if (nodesetup[i].nodesfound == nodesetup[i].nodeswanted && nodesetup[i].gameid == nodesetup[0].gameid) {
+		readynodes++;
+		if (!nodesetup[i].drone) doomcom->numplayers++;
+	    }
+
+	  if (readynodes == doomcom->numnodes) break;
+	}
+	{
+	    fd_set fds;
+	    struct timeval wt = {1,0};
+	    int rc;
+
+	    FD_ZERO(&fds);
+	    FD_SET(insocket,&fds);
+	    rc = select(insocket+1,&fds,NULL,NULL,&wt);
+	    if (rc < 0) I_Error("select: %s",strerror(errno));
+	    if (FD_ISSET(insocket,&fds)) {
+		if (PacketGet() > 0) {
+		    if (doomcom->data.timer == -1) {
+			if (doomcom->remotenode == -1) {
+			    if (nodesetup[0].nodesfound == nodesetup[0].nodeswanted) continue;
+			    // New node!
+			    doomcom->remotenode = nodesetup[0].nodesfound++;
+			    memcpy(&sendaddress[doomcom->remotenode],&fromaddress,sizeof fromaddress);
+			}
+			// A setup packet - ignore our own
+			if (doomcom->remotenode > 0)
+			    memcpy(&nodesetup[doomcom->remotenode],&(doomcom->data.checksum),sizeof(nodesetup[0]));
+		    } else if (doomcom->remotenode != -1) {
+			// into the game, so must be ready
+			nodesetup[doomcom->remotenode].nodesfound = nodesetup[doomcom->remotenode].nodeswanted;
+		    }
+		}
+	    }
+	}
+    }
+
+    {
+	int i;
+	doomcom->consoleplayer = doomcom->numplayers = 0;
+	for (i=0; i<doomcom->numnodes; i++) {
+	    if (nodesetup[i].drone) continue;
+	    if (doomcom->numplayers++ > MAXPLAYERS) I_Error("I_ListenPlayers: %d is too many",doomcom->numplayers);
+	    if (memcmp(&sendaddress[i],&sendaddress[0],sizeof fromaddress) < 0)
+		doomcom->consoleplayer++;
+	}
+    }
+    printf("joined game %d@%d as %d/%d",nodesetup[0].gameid,DOOMPORT,doomcom->consoleplayer+1,doomcom->numplayers);
 }
-
 
 //
 // I_InitNetwork
@@ -246,7 +252,6 @@ void I_InitNetwork (void)
     boolean		trueval = true;
     int			i;
     int			p;
-    struct hostent*	hostentry;	// host information entry
 	
     doomcom = malloc (sizeof (*doomcom) );
     memset (doomcom, 0, sizeof(*doomcom) );
@@ -276,15 +281,16 @@ void I_InitNetwork (void)
 	printf ("using alternate port %i\n",DOOMPORT);
     }
     
+    doomcom->id = DOOMCOM_ID;
+    doomcom->numplayers = 1;
+    
     // parse network game options,
-    //  -net <consoleplayer> <host> <host> ...
-    i = M_CheckParm ("-net");
+    i = M_CheckParm ("-nodes");
     if (!i)
     {
 	// single player game
 	netgame = false;
-	doomcom->id = DOOMCOM_ID;
-	doomcom->numplayers = doomcom->numnodes = 1;
+	doomcom->numnodes = 1;
 	doomcom->deathmatch = false;
 	doomcom->consoleplayer = 0;
 	return;
@@ -295,40 +301,15 @@ void I_InitNetwork (void)
     netgame = true;
 
     // parse player number and host list
-    doomcom->consoleplayer = myargv[i+1][0]-'1';
-
-    doomcom->numnodes = 1;	// this node for sure
+    doomcom->numnodes = atoi(myargv[i+1]);	// this node for sure
 	
-    i++;
-    while (++i < myargc && myargv[i][0] != '-')
-    {
-	sendaddress[doomcom->numnodes].sin_family = AF_INET;
-	sendaddress[doomcom->numnodes].sin_port = htons(DOOMPORT);
-	if (myargv[i][0] == '.')
-	{
-	    sendaddress[doomcom->numnodes].sin_addr.s_addr 
-		= inet_addr (myargv[i]+1);
-	}
-	else
-	{
-	    hostentry = gethostbyname (myargv[i]);
-	    if (!hostentry)
-		I_Error ("gethostbyname: couldn't find %s", myargv[i]);
-	    sendaddress[doomcom->numnodes].sin_addr.s_addr 
-		= *(int *)hostentry->h_addr_list[0];
-	}
-	doomcom->numnodes++;
-    }
-	
-    doomcom->id = DOOMCOM_ID;
-    doomcom->numplayers = doomcom->numnodes;
-    
     // build message to receive
-    insocket = UDPsocket ();
-    BindToLocalPort (insocket,htons(DOOMPORT));
+    insocket = ipx_socket ();
     ioctl (insocket, FIONBIO, &trueval);
 
-    sendsocket = UDPsocket ();
+    sendsocket = insocket;
+
+    I_ListenPlayers();
 }
 
 
@@ -336,7 +317,8 @@ void I_NetCmd (void)
 {
     if (doomcom->command == CMD_SEND)
     {
-	netsend ();
+	static int counter = 0;
+	netsend (counter++);
     }
     else if (doomcom->command == CMD_GET)
     {
