@@ -1,0 +1,52 @@
+This is an updated version of the linuxdoom-1.10 source code. As some of you
+will know, the original Doom source release from id was not a direct dump of
+their final source code - it was a derived version by Bernd Kreimeier. id were
+not able to release the DOS code, and the NeXT code was taken out too, leaving
+the Linux source to be released. The Linux code was a fork from the main
+codebase, however, and BK had to make some changes to it to get it workable
+enough for a release.
+
+So this is linuxdoom-1.11. After much research I have pinned down most, if not
+all, of the incompatibilities between linuxdoom-1.10 and the "real" Doom (final
+doom, ultimate doom, and doom2.exe v1.9). This version has a new parameter,
+-complevel, which can be set to enable compatibility with each of these
+releases: 
+
+-complevel 1		doom2.exe v1.9 compatible
+-complevel 2		ultimate doom doom.exe v1.9 compatible
+-complevel 3		final doom doom.exe v1.9 compatible
+
+This is only compatible for the same of pwads and demos - you can't play
+episode 4 from ultimate doom, nor will final doom itself work right. If you
+want a fully featured port supporting all the iwads etc while being fully
+compatible with the original game, you should be looking at prboom.
+
+This version is network compatible with the original doom2 using ipxsetup.exe.
+There is no separate networking program for linuxdoom-1.11 - the IPX network
+support is built in. This means that this version probably only compiles on
+Linux. To use the IPX networking, you need a kernel compiled with IPX support,
+and you have to configure IPX on your ethernet card. Debian users can just add 
+
+iface eth0 ipx dynamic
+        frame 802.2
+
+to their /etc/network/interfaces. Users of other distributions will need to get
+the IPX networking tools and figure it out themselves. Note that I have removed
+the UDP networking from linuxdoom-1.10 - if you want an easy networking, you
+should be using one of the ports.
+
+This isn't intended for end-users. If you want an easy to use, functional Doom
+port for your system, use one of the ports. PrBoom is the best if you want
+authenticity to the original game; for new features and eye-candy, you should
+look at ZDoom, or one of the OpenGL ports available on doomworld. This release
+is just intended for developers who might find it useful to have a true
+v1.9-compatible compilable & usable source code base. And for people like me,
+investingating bugs in original Doom but without a DOS system to hand.
+
+There is no high-res, no other bug fixing. You have to have a pseudocolor X
+display to run this - log in at a spare console, and run startx -- :1 -fbbpp 8
+to start up a second instance of the Xwindow system on another screen running
+at 8bpp. The old Linux Doom FAQ may help with configuring 320x200 support on your screen if you really want that.
+
+- Colin Phipps <doom@cph.demon.co.uk>
+
