@@ -153,7 +153,7 @@ int PacketGet (void)
 	static int first=1;
 	if (first)
 	    printf("len=%d,node=%d:seq=%d,sum=0x%08x,nextword=0%08x] \n", c, i, netbuffer->timer, netbuffer->checksum, *(((int*)netbuffer)+2));
-//	first = 0;
+	//first = 0;
     }
 
     doomcom->remotenode = i;			// good packet from a game player
