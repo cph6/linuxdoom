@@ -79,12 +79,21 @@ byte* I_ZoneBase (int*	size)
     return (byte *) malloc (*size);
 }
 
-
+// I_Sleep
+// 
+void I_Sleep(int usecs) {
+    struct timeval tv;
+    tv.tv_sec = usecs / 1000000;
+    tv.tv_usec = usecs - 1000000*tv.tv_sec;
+    select(0,NULL,NULL,NULL,&tv);
+}
 
 //
 // I_GetTime
 // returns time in 1/70th second tics
 //
+int usec_to_next_tic;
+
 int  I_GetTime (void)
 {
     struct timeval	tp;
@@ -96,6 +105,8 @@ int  I_GetTime (void)
     if (!basetime)
 	basetime = tp.tv_sec;
     newtics = (tp.tv_sec-basetime)*TICRATE + tp.tv_usec*TICRATE/1000000;
+    usec_to_next_tic = tp.tv_usec - (tp.tv_usec*TICRATE/1000000)*1000000/TICRATE;
+    if (usec_to_next_tic < 0 || usec_to_next_tic > 1000000/TICRATE) usec_to_next_tic = 1000;
     return newtics;
 }
 

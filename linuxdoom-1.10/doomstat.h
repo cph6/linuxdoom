@@ -94,6 +94,16 @@ extern  boolean	netgame;
 // Flag: true only if started as net deathmatch.
 // An enum might handle altdeath/cooperative better.
 extern  boolean	deathmatch;	
+
+// cph 2004/10/03 - compatibility level, as in prboom
+enum complevel_e {
+	doom_12_compatibility,
+	doom2_19_compatibility,
+	ultdoom_compatibility,
+	finaldoom_compatibility,
+};
+
+extern enum complevel_e complevel;
 	
 // -------------------------
 // Internal parameters for sound rendering.

@@ -1,5 +1,10 @@
 Sun, 03 Oct 2004	<cph@cph.demon.co.uk>
 
+	* Improvements to the idle loop, so we don't thrash the CPU on fast
+	  machines unnecessarily.
+
+Sun, 03 Oct 2004	<cph@cph.demon.co.uk>
+
 	* Added -complevel parameter, and complevel variable, which sets
 	  various game behaviours to be compatible with different revisions of
 	  the v1.9 doom2 exes. For now, we just emulate the lost soul bouncing

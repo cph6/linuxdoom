@@ -720,10 +720,12 @@ void TryRunTics (void)
 	    I_Error ("TryRunTics: lowtic < gametic");
 				
 	// don't stay in here forever -- give the menu a chance to work
-	if (I_GetTime ()/ticdup - entertic >= 20)
-	{
+	if (lowtic < gametic/ticdup + counts) {
+	  I_Sleep(usec_to_next_tic);
+	  if (I_GetTime ()/ticdup - entertic >= 20) {
 	    M_Ticker ();
 	    return;
+	  }
 	} 
     }
     
