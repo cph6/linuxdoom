@@ -118,7 +118,7 @@ FILE*		debugfile;
 
 boolean		advancedemo;
 
-
+enum complevel_e complevel = doom2_19_compatibility;
 
 
 char		wadfile[1024];		// primary wad file
@@ -805,6 +805,10 @@ void D_DoomMain (void)
 	deathmatch = 2;
     else if (M_CheckParm ("-deathmatch"))
 	deathmatch = 1;
+
+    if ((p = M_CheckParm("-complevel")) > 0)
+	if (p < myargc-2)
+	    complevel = atoi(myargv[p+1]);
 
     switch ( gamemode )
     {

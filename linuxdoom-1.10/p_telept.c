@@ -27,6 +27,7 @@ rcsid[] = "$Id: p_telept.c,v 1.3 1997/01/28 22:08:29 b1 Exp $";
 
 
 #include "doomdef.h"
+#include "doomstat.h"
 
 #include "s_sound.h"
 
@@ -103,7 +104,8 @@ EV_Teleport
 		if (!P_TeleportMove (thing, m->x, m->y))
 		    return 0;
 		
-		thing->z = thing->floorz;  //fixme: not needed?
+		if (complevel != finaldoom_compatibility)
+		    thing->z = thing->floorz;
 		if (thing->player)
 		    thing->player->viewz = thing->z+thing->player->viewheight;
 				

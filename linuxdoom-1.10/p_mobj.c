@@ -285,16 +285,14 @@ void P_ZMovement (mobj_t* mo)
     {
 	// hit the floor
 
-#if 0
 	// Note (id):
 	//  somebody left this after the setting momz to 0,
 	//  kinda useless there.
-	if (mo->flags & MF_SKULLFLY)
+	if ((complevel > doom2_19_compatibility) && (mo->flags & MF_SKULLFLY))
 	{
 	    // the skull slammed into something
 	    mo->momz = -mo->momz;
 	}
-#endif
 	
 	if (mo->momz < 0)
 	{
@@ -312,13 +310,11 @@ void P_ZMovement (mobj_t* mo)
 	}
 	mo->z = mo->floorz;
 
-#if 1
-	if (mo->flags & MF_SKULLFLY)
+	if ((complevel <= doom2_19_compatibility) && (mo->flags & MF_SKULLFLY))
 	{
 	    // the skull slammed into something
 	    mo->momz = -mo->momz;
 	}
-#endif
 
 	if ( (mo->flags & MF_MISSILE)
 	     && !(mo->flags & MF_NOCLIP) )

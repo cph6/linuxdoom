@@ -1,7 +1,17 @@
+Sun, 03 Oct 2004	<cph@cph.demon.co.uk>
 
+	* Added -complevel parameter, and complevel variable, which sets
+	  various game behaviours to be compatible with different revisions of
+	  the v1.9 doom2 exes. For now, we just emulate the lost soul bouncing
+	  bug (for doom2.exe v1.9 compat) and the teleport bug (for final doom
+	  compat). Verified that it works with some of the old test demos that
+	  are affected by these bugs.
 
+Sun, 26 Sep 2004	<cph@cph.demon.co.uk>
 
-	* TODO: see below, and in the "TODO" file. Enjoy!
+	* Rewrote i_net.c, replacing the tcp/ip networking with IPX. This is
+	  tested compatible with the original Doom 2 IPXSETUP.EXE. Useful for
+	  testing the old networking.
 
 Mon Dec 22 20:29:16 1997    <bk@gamers.org>
 
