@@ -356,14 +356,6 @@ void D_DoomLoop (void)
     if (demorecording)
 	G_BeginRecording ();
 		
-    if (M_CheckParm ("-debugfile"))
-    {
-	char    filename[20];
-	sprintf (filename,"debug%i.txt",consoleplayer);
-	printf ("debug output to: %s\n",filename);
-	debugfile = fopen (filename,"w");
-    }
-	
     I_InitGraphics ();
 
     while (1)
@@ -1100,6 +1092,14 @@ void D_DoomMain (void)
     printf ("I_Init: Setting up machine state.\n");
     I_Init ();
 
+    if (M_CheckParm ("-debugfile"))
+    {
+	char    filename[20];
+	sprintf (filename,"debug.txt");
+	printf ("debug output to: %s\n",filename);
+	debugfile = fopen (filename,"w");
+    }
+	
     printf ("D_CheckNetGame: Checking network game status.\n");
     D_CheckNetGame ();
 
