@@ -1,3 +1,5 @@
+# linuxdoom-1.11
+
 This is an updated version of the linuxdoom-1.10 source code. As some of you
 will know, the original Doom source release from id was not a direct dump of
 their final source code - it was a derived version by Bernd Kreimeier. id were
@@ -9,12 +11,14 @@ enough for a release.
 So this is linuxdoom-1.11. After much research I have pinned down most, if not
 all, of the incompatibilities between linuxdoom-1.10 and the "real" Doom (final
 doom, ultimate doom, and doom2.exe v1.9). This version has a new parameter,
--complevel, which can be set to enable compatibility with each of these
-releases: 
+`-complevel`, which can be set to enable compatibility with each of these
+releases:
 
+```
 -complevel 1		doom2.exe v1.9 compatible
 -complevel 2		ultimate doom doom.exe v1.9 compatible
 -complevel 3		final doom doom.exe v1.9 compatible
+```
 
 This is only compatible for the same of pwads and demos - you can't play
 episode 4 from ultimate doom, nor will final doom itself work right. If you
@@ -27,8 +31,10 @@ support is built in. This means that this version probably only compiles on
 Linux. To use the IPX networking, you need a kernel compiled with IPX support,
 and you have to configure IPX on your ethernet card. Debian users can just add 
 
+```
 iface eth0 ipx dynamic
         frame 802.2
+```
 
 to their /etc/network/interfaces. Users of other distributions will need to get
 the IPX networking tools and figure it out themselves. Note that I have removed
@@ -44,9 +50,10 @@ v1.9-compatible compilable & usable source code base. And for people like me,
 investingating bugs in original Doom but without a DOS system to hand.
 
 There is no high-res, no other bug fixing. You have to have a pseudocolor X
-display to run this - log in at a spare console, and run startx -- :1 -fbbpp 8
+display to run this - log in at a spare console, and run `startx -- :1 -fbbpp 8`
 to start up a second instance of the Xwindow system on another screen running
-at 8bpp. The old Linux Doom FAQ may help with configuring 320x200 support on your screen if you really want that.
+at 8bpp. The old Linux Doom FAQ may help with configuring 320x200 support on
+your screen if you really want that.
 
-- Colin Phipps <doom@cph.demon.co.uk>
+- Colin Phipps <cph@moria.org.uk>
 
